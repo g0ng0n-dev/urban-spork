@@ -34,19 +34,30 @@ async fn main() {
 
         let mut line = String::new();
         loop {
+            // what the select Macro does is allows you to run multiple asyncrhnous things concurrently
+            // at the same time and act on the first one that comes back with a result
+            tokio::select!{
+                // identifier -> feature -> block of code
+                result = reader.read_line(&mut line) => {
+                     if result.unwrap() == 0{
+                        break;
+                    }
 
-            let bytes_read = reader.read_line(&mut line).await.unwrap();
-            if bytes_read == 0{
-                break;
+                    tx.send(line.clone()).unwrap();
+                    line.clear();
+                }
+
+                //rx.recv returns a future, we unwrap the future into the msg var
+                // the select macro is going to basically going to do awieght on the future
+                // implicitly as a part of the compiler machinery that it generates.
+                result = rx.recv() => {
+                    let msg = result.unwrap();
+                    write.write_all(msg.as_bytes()).await.unwrap();
+                }
             }
-            tx.send(line.clone()).unwrap();
 
-            let msg = rx.recv().await.unwrap();
-
-            write.write_all(msg.as_bytes()).await.unwrap();
 
             //we need to clear out the input buffer
-            line.clear();
         }
     });
 
